@@ -63,6 +63,8 @@ def run_tool_call(call: dict, tools: dict) -> tuple[str, str]:
 
 
 def main() -> None:
+    from datetime import date
+    
     project_root = Path(__file__).resolve().parents[1]
     env_data = load_env(project_root / ".env")
 
@@ -73,14 +75,19 @@ def main() -> None:
     if not base_url or not model:
         raise ValueError("OPENAI_BASE_URL and OPENAI_MODEL are required in .env")
 
+    today = date.today().isoformat()
+    weekdays = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    weekday_name = weekdays[date.today().weekday()]
+    
     system_prompt = (
-        "你是一个支持工具调用的助手。"
-        "当用户需要查询城市天气时，使用 get_weather 工具。"
-        "重要：为了获取详细天气预报数据（包括温度范围、天气描述等），在调用 get_weather 时务必传 date 参数。"
-        "使用当前日期或用户指定的日期（格式 YYYY-MM-DD 或 MM-DD）。"
-        "如果需要查看原始 JSON 数据进行验证，可在 get_weather 中传 raw_json=true。"
-        "工具可用时，先调用工具获取结构化数据，再根据实际数据回答用户。"
-        "如果问题不需要工具，直接回答。"
+        f"你是一个支持工具调用的助手。"
+        f"当前日期是 {today} ({weekday_name})。"
+        f"当用户需要查询城市天气时，使用 get_weather 工具。"
+        f"重要：为了获取详细天气预报数据（包括温度范围、天气描述等），在调用 get_weather 时务必传 date 参数。"
+        f"使用当前日期或用户指定的日期（格式 YYYY-MM-DD 或 MM-DD）。"
+        f"如果需要查看原始 JSON 数据进行验证，可在 get_weather 中传 raw_json=true。"
+        f"工具可用时，先调用工具获取结构化数据，再根据实际数据回答用户。"
+        f"如果问题不需要工具，直接回答。"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
