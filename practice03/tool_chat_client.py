@@ -76,9 +76,10 @@ def main() -> None:
     system_prompt = (
         "你是一个支持工具调用的助手。"
         "当用户需要查询城市天气时，使用 get_weather 工具。"
-        "如果用户指定日期，请在 get_weather 里传 date 参数（YYYY-MM-DD 或 MM-DD）。"
-        "若用户要求核验原始数据，可在 get_weather 中传 raw_json=true。"
-        "工具可用时，先调用工具，再根据工具结果回答用户。"
+        "重要：为了获取详细天气预报数据（包括温度范围、天气描述等），在调用 get_weather 时务必传 date 参数。"
+        "使用当前日期或用户指定的日期（格式 YYYY-MM-DD 或 MM-DD）。"
+        "如果需要查看原始 JSON 数据进行验证，可在 get_weather 中传 raw_json=true。"
+        "工具可用时，先调用工具获取结构化数据，再根据实际数据回答用户。"
         "如果问题不需要工具，直接回答。"
     )
 

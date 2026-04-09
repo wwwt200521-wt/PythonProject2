@@ -27,6 +27,7 @@ def _extract_forecast(payload: dict, target_date: str, lang: str = "zh") -> dict
 
     Prefer language-specific description fields (e.g. 'lang_zh') when available,
     otherwise fall back to the generic 'weatherDesc'.
+    Use day-level min/max temperatures for consistency with wttr.in website.
     """
     lang_key = f"lang_{lang}"
     for day in payload.get("weather", []):
@@ -45,30 +46,23 @@ def _extract_forecast(payload: dict, target_date: str, lang: str = "zh") -> dict
             if not desc and day.get(lang_key):
                 desc = day.get(lang_key, [{}])[0].get("value", "")
 
-            temps = []
-            for entry in hourly:
-                temp = entry.get("tempC")
-                if temp is None:
-                    continue
-                try:
-                    temps.append(int(temp))
-                except (TypeError, ValueError):
-                    continue
-            if temps:
-                temp_min = min(temps)
-                temp_max = max(temps)
-                temp_source = "hourly"
-            else:
-                temp_min = day.get("mintempC")
-                temp_max = day.get("maxtempC")
-                temp_source = "daily"
+            # Use day-level min/max for consistency with wttr.in website
+            temp_min = day.get("mintempC")
+            temp_max = day.get("maxtempC")
+            # Convert to int if they are strings
+            try:
+                temp_min = int(temp_min) if temp_min else None
+                temp_max = int(temp_max) if temp_max else None
+            except (TypeError, ValueError):
+                pass
+            
             return {
                 "date": target_date,
                 "desc": desc,
                 "tempC_min": temp_min,
                 "tempC_max": temp_max,
                 "tempC_avg": day.get("avgtempC"),
-                "temp_source": temp_source,
+                "temp_source": "daily",
             }
     return {"date": target_date, "error": "Date not found in forecast"}
 
