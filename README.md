@@ -28,6 +28,9 @@ python practice01\run_llm.py "Hello from practice01"
 - `practice03/tools_weather.py`: wttr.in 天气工具封装（get_weather） / wttr.in weather tool wrapper (get_weather).
 - `practice03/tool_chat_client.py`: 天气工具调用聊天客户端 / Tool-calling chat client for weather.
 - `practice03/weather_cli.py`: 直接命令行查询天气的小脚本 / Tiny CLI to query weather directly.
+- `practice04/history_compress.py`: 聊天历史压缩与总结逻辑（超限触发） / Chat history compression and summarization logic (threshold-based).
+- `practice04/terminal_chat_stream.py`: 支持自动总结压缩的终端聊天（流式输出） / Terminal chat with auto summarization and streaming output.
+- `practice04/test_history_compress.py`: 历史压缩逻辑的轻量测试脚本 / Lightweight tests for history compression logic.
 
 ## Teaching docs
 
@@ -50,6 +53,53 @@ python practice02\tool_chat_client.py
 ```powershell
 python practice03\weather_cli.py "青城山"
 python practice03\tool_chat_client.py
+```
+
+## Practice 03 Call Sequence (Mermaid)
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant TC as practice03/tool_chat_client.py
+  participant LLM as LLM API (/chat/completions)
+  participant TW as practice03/tools_weather.py
+  participant WT as wttr.in
+
+  U->>TC: 输入问题
+  TC->>LLM: messages + tools
+  LLM-->>TC: tool_calls(get_weather)
+  TC->>TW: get_weather(...)
+  TW->>WT: HTTPS request
+  WT-->>TW: JSON/text
+  TW-->>TC: 工具结果(JSON)
+  TC->>LLM: messages + tool result
+  LLM-->>TC: 最终回答
+  TC-->>U: 输出回答
+```
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant CLI as practice03/weather_cli.py
+  participant TW as practice03/tools_weather.py
+  participant WT as wttr.in
+
+  U->>CLI: 城市名
+  CLI->>TW: fetch_weather(...)
+  TW->>WT: HTTPS request
+  WT-->>TW: text
+  TW-->>CLI: result
+  CLI-->>U: 输出
+```
+
+## Practice 04 - History Compression
+
+```powershell
+python practice04\terminal_chat_stream.py
+```
+
+```powershell
+python practice04\test_history_compress.py
 ```
 
 ## Notes

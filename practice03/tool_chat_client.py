@@ -23,7 +23,7 @@ def load_env(env_path: Path) -> dict:
     return env_data
 
 
-def call_llm(base_url: str, api_key: str, payload: dict) -> dict:
+def call_llm(base_url: str, api_key: str, payload: dict, timeout_seconds: int) -> dict:
     url = base_url.rstrip("/") + "/chat/completions"
     body = json.dumps(payload).encode("utf-8")
     headers = {
@@ -35,7 +35,7 @@ def call_llm(base_url: str, api_key: str, payload: dict) -> dict:
     req = request.Request(url, data=body, headers=headers, method="POST")
 
     try:
-        with request.urlopen(req, timeout=120) as resp:
+        with request.urlopen(req, timeout=timeout_seconds) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
@@ -71,6 +71,7 @@ def main() -> None:
     base_url = env_data.get("OPENAI_BASE_URL")
     model = env_data.get("OPENAI_MODEL")
     api_key = env_data.get("OPENAI_API_KEY", "")
+    timeout_seconds = int(env_data.get("OPENAI_TIMEOUT", "180"))
 
     if not base_url or not model:
         raise ValueError("OPENAI_BASE_URL and OPENAI_MODEL are required in .env")
@@ -110,7 +111,7 @@ def main() -> None:
                 "temperature": 0.4,
             }
 
-            response = call_llm(base_url, api_key, payload)
+            response = call_llm(base_url, api_key, payload, timeout_seconds)
             message = response.get("choices", [{}])[0].get("message", {})
             tool_calls = extract_tool_calls(message)
 
@@ -132,7 +133,7 @@ def main() -> None:
                     "messages": messages,
                     "temperature": 0.4,
                 }
-                followup = call_llm(base_url, api_key, followup_payload)
+                followup = call_llm(base_url, api_key, followup_payload, timeout_seconds)
                 assistant = followup.get("choices", [{}])[0].get("message", {})
                 content = assistant.get("content") or ""
             else:
