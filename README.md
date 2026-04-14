@@ -31,6 +31,9 @@ python practice01\run_llm.py "Hello from practice01"
 - `practice04/history_compress.py`: 聊天历史压缩与总结逻辑（超限触发） / Chat history compression and summarization logic (threshold-based).
 - `practice04/terminal_chat_stream.py`: 支持自动总结压缩的终端聊天（流式输出） / Terminal chat with auto summarization and streaming output.
 - `practice04/test_history_compress.py`: 历史压缩逻辑的轻量测试脚本 / Lightweight tests for history compression logic.
+- `practice04/tools_history.py`: 聊天历史 5W 关键信息记录与搜索工具 / 5W fact logging and search helpers for chat history.
+- `practice04/test_history_log.py`: 聊天历史日志的轻量测试脚本 / Lightweight tests for history log IO.
+- `Log/log.txt`: 聊天历史 5W 关键信息日志（增量追加） / Incremental 5W facts log for chat history.
 
 ## Teaching docs
 
@@ -100,6 +103,10 @@ python practice04\terminal_chat_stream.py
 
 ```powershell
 python practice04\test_history_compress.py
+```
+
+```powershell
+python practice04\test_history_log.py
 ```
 
 ## Notes

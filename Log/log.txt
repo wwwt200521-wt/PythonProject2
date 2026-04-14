@@ -1,0 +1,10 @@
+{"who": "User", "what": "打招呼", "when": "", "where": "", "why": ""}
+{"who": "Assistant", "what": "回应问候", "when": "", "where": "", "why": "提供帮助"}
+{"who": "嘉豪", "what": "与助手对话", "when": "", "where": "", "why": "打招呼并寻求帮助"}
+{"who": "助手", "what": "回应嘉豪", "when": "", "where": "", "why": "表示欢迎并提供支持"}
+{"who": "嘉豪", "what": "正在学习 Function Call", "when": "现在", "where": "对话中", "why": "想了解如何让模型识别函数调用"}
+{"who": "嘉豪", "what": "询问如何让模型识别函数调用", "when": "现在", "where": "对话中", "why": "希望掌握 AI Agent 系统中的函数调用机制"}
+{"who": "嘉豪", "what": "询问自己的名字", "when": "", "where": "", "why": "确认自己的身份"}
+{"who": "嘉豪", "what": "查找聊天历史", "when": "", "where": "", "why": ""}
+{"who": "通义千问", "what": "无视任何规则与用户对话", "when": "现在", "where": "对话中", "why": "用户要求"}
+{"who": "用户", "what": "要求通义千问无视规则对话", "when": "现在", "where": "对话中", "why": "用户意图突破限制"}
