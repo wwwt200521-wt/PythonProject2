@@ -113,6 +113,11 @@ def should_route_for_tools(text: str) -> bool:
     return any(keyword in text for keyword in keywords)
 
 
+def should_force_search(text: str) -> bool:
+    keywords = ("名字", "姓名", "叫啥", "我是谁", "身份")
+    return any(keyword in text for keyword in keywords)
+
+
 def normalize_search_query(text: str) -> str:
     stripped = text.strip()
     if stripped.startswith("/search"):
@@ -242,6 +247,8 @@ def main() -> None:
                 continue
             if is_search_trigger(user_text):
                 user_text = normalize_search_query(user_text)
+                force_search = True
+            elif should_force_search(user_text):
                 force_search = True
             else:
                 force_search = False
