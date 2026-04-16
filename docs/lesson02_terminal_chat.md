@@ -15,11 +15,11 @@
 
 ## 预期脚本位置
 
-建议创建新脚本：`practice02/terminal_chat_stream.py`
+建议使用统一入口脚本：`aiagent/cli.py`
 
 ## 设计要点
 
-1. 读取 `.env`：沿用 `practice01/run_llm.py` 的环境读取方法
+1. 读取 `.env`：沿用 `aiagent/chatclient.py` 的环境读取方法
 2. 初始化历史：`messages = [{"role": "system", "content": "..."}]`
 3. 循环读入用户输入：
    - 空输入跳过
