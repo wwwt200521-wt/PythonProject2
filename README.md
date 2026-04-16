@@ -34,6 +34,9 @@ python practice01\run_llm.py "Hello from practice01"
 - `practice04/tools_history.py`: 聊天历史 5W 关键信息记录与搜索工具 / 5W fact logging and search helpers for chat history.
 - `practice04/test_history_log.py`: 聊天历史日志的轻量测试脚本 / Lightweight tests for history log IO.
 - `Log/log.txt`: 聊天历史 5W 关键信息日志（增量追加） / Incremental 5W facts log for chat history.
+- `practice05/chatclient.py`: 支持历史压缩与 AnythingLLM 工具调用的终端聊天客户端 / Terminal chat client with history compression and AnythingLLM tool calling.
+- `practice05/tools_anythingllm.py`: AnythingLLM 工具封装（curl 调用 /api/v1/workspace/ai/chat） / AnythingLLM tool wrapper using curl.
+- `practice05/terminal_chat_stream.py`: practice05 聊天入口脚本（调用 chatclient） / Practice 05 entry script that delegates to chatclient.
 
 ## Teaching docs
 
@@ -109,7 +112,14 @@ python practice04\test_history_compress.py
 python practice04\test_history_log.py
 ```
 
+## Practice 05 - AnythingLLM Tool
+
+```powershell
+python practice05\chatclient.py
+```
+
 ## Notes
 
 - The script reads `.env` from the project root.
 - Requests are sent to `{OPENAI_BASE_URL}/chat/completions`.
+- Practice 05 reads `ANYTHINGLLMAPIKEY` to authenticate with AnythingLLM.
