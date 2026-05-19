@@ -1,4 +1,4 @@
-# PythonProject2 — 统一 AI 终端助手
+# AI-Assistant — 统一 AI 终端助手
 
 基于 OpenAI 兼容 API 的 AI 助手项目，核心包为 `aiagent`。支持**终端命令行聊天**和 **Web UI** 两种使用方式，通过链式工具调用（chained tool call）编排多个工具完成复杂任务。
 
@@ -32,7 +32,7 @@ python server.py
 ## 项目结构
 
 ```
-PythonProject2/
+AI-Assistant/
 ├── aiagent/                    # 核心包
 │   ├── chatclient.py           # 终端聊天主循环
 │   ├── env.py                  # 环境变量加载与运行时配置
@@ -62,6 +62,11 @@ PythonProject2/
 ├── report.md                   # 项目报告
 ├── requirements.txt            # Python 依赖
 ├── .env.example                # 环境变量模板
+├── .agents/                     # Claude Code 自定义 agent 技能
+│   └── skills/
+│       ├── init-spec/           # SPEC 驱动开发规划
+│       ├── khazix-writer/       # 公众号长文写作（卡兹克风格）
+│       └── notice/              # 通知公告撰写
 └── CLAUDE.md                   # 项目架构说明（给 Claude Code 使用）
 ```
 
