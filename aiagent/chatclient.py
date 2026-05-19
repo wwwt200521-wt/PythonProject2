@@ -1,313 +1,42 @@
-import json
+from __future__ import annotations
+
 from pathlib import Path
-from urllib import error, request
 
+from aiagent.env import load_runtime_config
 from aiagent.history_compress import compress_history, context_length, count_rounds, should_compress
-from aiagent.tools.anythingllm import DEFAULT_BASE_URL, anythingllmquery, tool_spec as anythingllm_tool_spec
-from aiagent.tools.filesystem import format_tool_result as format_fs_result, tool_dispatch as fs_dispatch, tool_specs as fs_tool_specs
-from aiagent.tools.history import append_log_entries, format_tool_result, read_log_text, tool_specs as history_tool_specs
-from aiagent.tools.weather import format_tool_result as format_weather_result, tool_dispatch as weather_dispatch, tool_specs as weather_tool_specs
-
-
-def load_env(env_path: Path) -> dict:
-    env_data = {}
-    if not env_path.exists():
-        raise FileNotFoundError(f"Missing .env file at: {env_path}")
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        key, sep, value = stripped.partition("=")
-        if not sep:
-            continue
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        env_data[key] = value
-    return env_data
-
-
-def build_payload(model: str, messages: list[dict]) -> dict:
-    return {
-        "model": model,
-        "messages": messages,
-        "stream": True,
-        "temperature": 0.7,
-        "max_tokens": 512,
-        "stop": ["\n——\n⚠️ 重要提醒", "\n\n——\n⚠️ 重要提醒"],
-    }
-
-
-def iter_sse_lines(response) -> str:
-    for raw in response:
-        line = raw.decode("utf-8", errors="ignore").strip()
-        if not line:
-            continue
-        if line.startswith("data:"):
-            yield line[5:].strip()
-
-
-def stream_chat(base_url: str, api_key: str, payload: dict) -> str:
-    url = base_url.rstrip("/") + "/chat/completions"
-    body = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-    }
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    req = request.Request(url, data=body, headers=headers, method="POST")
-
-    try:
-        with request.urlopen(req, timeout=120) as resp:
-            chunks = []
-            for data in iter_sse_lines(resp):
-                if data == "[DONE]":
-                    break
-                try:
-                    event = json.loads(data)
-                except json.JSONDecodeError:
-                    continue
-                delta = event.get("choices", [{}])[0].get("delta", {})
-                content = delta.get("content")
-                if content:
-                    print(content, end="", flush=True)
-                    chunks.append(content)
-            print("")
-            return "".join(chunks)
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
-
-
-def call_llm(base_url: str, api_key: str, payload: dict) -> dict:
-    url = base_url.rstrip("/") + "/chat/completions"
-    body = json.dumps(payload).encode("utf-8")
-    headers = {
-        "Content-Type": "application/json",
-    }
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    req = request.Request(url, data=body, headers=headers, method="POST")
-
-    try:
-        with request.urlopen(req, timeout=120) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
-
-
-def extract_tool_calls(message: dict) -> list[dict]:
-    tool_calls = message.get("tool_calls")
-    if not isinstance(tool_calls, list):
-        return []
-    return tool_calls
-
-
-def is_search_trigger(text: str) -> bool:
-    stripped = text.strip()
-    return stripped.startswith("/search") or "查找聊天历史" in stripped or "搜索聊天历史" in stripped
-
-
-def should_route_for_tools(text: str) -> bool:
-    keywords = (
-        "历史",
-        "回顾",
-        "查找",
-        "搜索",
-        "名字",
-        "姓名",
-        "叫啥",
-        "我是谁",
-        "身份",
-        "知识库",
-        "文档",
-        "资料",
-        "AnythingLLM",
-        "workspace",
-        "天气",
-        "温度",
-        "预报",
-        "目录",
-        "文件",
-        "读",
-        "写",
-        "删除",
-        "重命名",
-    )
-    return any(keyword in text for keyword in keywords)
-
-
-def should_force_search(text: str) -> bool:
-    keywords = ("名字", "姓名", "叫啥", "我是谁", "身份")
-    return any(keyword in text for keyword in keywords)
-
-
-def normalize_search_query(text: str) -> str:
-    stripped = text.strip()
-    if stripped.startswith("/search"):
-        return stripped[len("/search") :].strip() or "查找聊天历史"
-    return stripped
-
-
-def build_tool_call(query: str, call_id: str = "manual-search") -> dict:
-    return {
-        "type": "function",
-        "id": call_id,
-        "function": {
-            "name": "search_history",
-            "arguments": json.dumps({"query": query}, ensure_ascii=False),
-        },
-    }
-
-
-def summarize_history(base_url: str, api_key: str, model: str, transcript: str) -> str:
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "你是一个对话总结助手，请提炼关键事实、用户偏好和待办事项。",
-            },
-            {
-                "role": "user",
-                "content": f"请总结以下对话内容，要求简洁清晰:\n\n{transcript}",
-            },
-        ],
-        "temperature": 0.2,
-    }
-    response = call_llm(base_url, api_key, payload)
-    message = response.get("choices", [{}])[0].get("message", {})
-    return message.get("content", "")
-
-
-def extract_key_facts(base_url: str, api_key: str, model: str, transcript: str) -> list[dict]:
-    if not transcript.strip():
-        return []
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "你是信息抽取助手，只输出 JSON 数组。字段: who, what, when, where, why。没有就空字符串。",
-            },
-            {
-                "role": "user",
-                "content": "请按 5W 规则从对话中提取多条关键信息:\n\n" + transcript,
-            },
-        ],
-        "temperature": 0.1,
-    }
-    response = call_llm(base_url, api_key, payload)
-    message = response.get("choices", [{}])[0].get("message", {})
-    content = message.get("content", "")
-    try:
-        data = json.loads(content)
-    except json.JSONDecodeError:
-        return []
-    if isinstance(data, list):
-        return [item for item in data if isinstance(item, dict)]
-    return []
-
-
-def search_history_with_llm(base_url: str, api_key: str, model: str, log_text: str, query: str) -> dict:
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "你是聊天历史检索助手，只根据提供的日志查找相关内容。",
-            },
-            {
-                "role": "user",
-                "content": "日志如下:\n" + log_text + "\n\n请查找与以下问题相关的内容，并给出要点:\n" + query,
-            },
-        ],
-        "temperature": 0.2,
-    }
-    response = call_llm(base_url, api_key, payload)
-    message = response.get("choices", [{}])[0].get("message", {})
-    return {"query": query, "result": message.get("content", "")}
-
-
-def build_transcript(messages: list[dict], start_index: int) -> str:
-    lines = []
-    for message in messages[start_index:]:
-        role = message.get("role")
-        if role not in {"user", "assistant"}:
-            continue
-        content = message.get("content", "")
-        if not content:
-            continue
-        prefix = "User" if role == "user" else "Assistant"
-        lines.append(f"{prefix}: {content}")
-    return "\n".join(lines)
-
-
-def build_tools() -> list[dict]:
-    return history_tool_specs() + [anythingllm_tool_spec()] + fs_tool_specs() + weather_tool_specs()
-
-
-def run_tool_call(call: dict, base_url: str, api_key: str, model: str, anythingllm_key: str, anythingllm_url: str) -> tuple[str, str]:
-    name = call.get("function", {}).get("name")
-    raw_args = call.get("function", {}).get("arguments", "{}")
-    try:
-        args = json.loads(raw_args) if raw_args else {}
-    except json.JSONDecodeError:
-        args = {}
-
-    if name == "search_history":
-        query = args.get("query", "").strip()
-        log_text = read_log_text()
-        result = search_history_with_llm(base_url, api_key, model, log_text, query)
-        return name, format_tool_result(result)
-    if name == "anythingllmquery":
-        message = args.get("message", "").strip()
-        result = anythingllmquery(message, anythingllm_key, anythingllm_url)
-        return name, format_tool_result(result)
-
-    fs_tools = fs_dispatch()
-    if name in fs_tools:
-        result = fs_tools[name](**args)
-        return name, format_fs_result(result)
-
-    weather_tools = weather_dispatch()
-    if name in weather_tools:
-        result = weather_tools[name](**args)
-        return name, format_weather_result(result)
-
-    raise ValueError("Unknown tool requested")
+from aiagent.notice import enforce_notice_skill_defaults
+from aiagent.routing import (
+    build_chained_user_request,
+    is_search_trigger,
+    normalize_search_query,
+    should_force_list_anythingllm_files,
+    should_force_list_workspace_files,
+    should_force_search,
+    should_force_skills_check,
+    should_route_for_tools,
+)
+from aiagent.tooling import build_tool_schema_map
+from aiagent.web_summary import auto_finalize_web_summary_to_file, build_web_summary_request
+from aiagent.workflow import build_tools, build_transcript, executechainedtoolcall, extract_key_facts, summarize_history
+from aiagent.tools.history import append_log_entries
 
 
 def main() -> None:
-    project_root = Path(__file__).resolve().parents[1]
-    env_data = load_env(project_root / ".env")
-
-    base_url = env_data.get("OPENAI_BASE_URL")
-    model = env_data.get("OPENAI_MODEL")
-    api_key = env_data.get("OPENAI_API_KEY", "")
-    anythingllm_key = env_data.get("ANYTHINGLLMAPIKEY", "")
-    anythingllm_url = env_data.get("ANYTHINGLLM_BASE_URL", DEFAULT_BASE_URL)
-
-    if not base_url or not model:
-        raise ValueError("OPENAI_BASE_URL and OPENAI_MODEL are required in .env")
+    config = load_runtime_config(Path(__file__).resolve().parents[1])
+    tool_call_log_path = config.tool_call_log_path if config.enable_tool_call_audit else None
 
     system_prompt = (
-        "你是一个支持工具调用的助手。"
-        "当用户需要查询聊天历史或找回已记录的 5W 事实时，使用 search_history。"
-        "当用户明确需要查询 AnythingLLM 本地知识库/文档/资料时，使用 anythingllmquery。"
-        "当用户需要读写/列出/删除/重命名文件或创建目录时，使用文件系统工具。"
-        "当用户需要查询天气（今天/某天/城市）时，使用 get_weather。"
-        "工具可用时，先调用工具，再根据工具结果回答用户。"
-        "如果问题不需要工具，直接回答。"
+        "你是用户的AI助手。"
+        "对于内容创作类任务（文章、通知、读后感、公众号稿子等），必须先调用 list_skills 查看可用技能，"
+        "再调用 read_skill 获取对应写作规范，最后按规范完成。"
+        "涉及知识库和文档查询时，优先使用 AnythingLLM 相关工具和 search_history。"
     )
 
     messages = [{"role": "system", "content": system_prompt}]
     raw_messages = list(messages)
     last_extracted_index = 0
     tools = build_tools()
+    tool_schema_map = build_tool_schema_map(tools)
     last_compress_rounds = 0
     last_compress_chars = 0
 
@@ -317,6 +46,9 @@ def main() -> None:
             user_text = input("你: ").strip()
             if not user_text:
                 continue
+
+            web_summary_request = build_web_summary_request(user_text, config.project_root)
+            effective_user_text = web_summary_request or user_text
             if is_search_trigger(user_text):
                 user_text = normalize_search_query(user_text)
                 force_search = True
@@ -325,7 +57,7 @@ def main() -> None:
             else:
                 force_search = False
 
-            user_message = {"role": "user", "content": user_text}
+            user_message = {"role": "user", "content": effective_user_text}
             messages.append(user_message)
             raw_messages.append(user_message)
 
@@ -338,64 +70,105 @@ def main() -> None:
                 print("正在压缩历史记录...")
                 transcript = build_transcript(raw_messages, last_extracted_index)
                 if transcript:
-                    facts = extract_key_facts(base_url, api_key, model, transcript)
+                    facts = extract_key_facts(config.base_url, config.api_key, config.model, transcript)
                     if facts:
                         append_log_entries(facts)
                     last_extracted_index = len(raw_messages)
                 messages = compress_history(
                     messages,
-                    lambda transcript: summarize_history(base_url, api_key, model, transcript),
+                    lambda transcript: summarize_history(config.base_url, config.api_key, config.model, transcript),
                 )
                 last_compress_rounds = count_rounds(messages)
                 last_compress_chars = context_length(messages)
 
-            tool_calls = []
-            if force_search:
-                tool_calls = [build_tool_call(user_text)]
-                messages.append({"role": "assistant", "content": "", "tool_calls": tool_calls})
-            elif should_route_for_tools(user_text):
-                route_payload = {
-                    "model": model,
-                    "messages": messages,
-                    "tools": tools,
-                    "tool_choice": "auto",
-                    "temperature": 0.0,
+            if web_summary_request:
+                print("助手: ", end="", flush=True)
+                streamed_chunks: list[str] = []
+
+                def on_token(token: str) -> None:
+                    print(token, end="", flush=True)
+                    streamed_chunks.append(token)
+
+                assistant_text = auto_finalize_web_summary_to_file(
+                    userrequest=web_summary_request,
+                    executed_steps=[],
+                    base_url=config.base_url,
+                    api_key=config.api_key,
+                    model=config.model,
+                    max_tokens=config.max_tokens,
+                    on_token=on_token,
+                )
+                print()
+                if assistant_text:
+                    assistant_message = {"role": "assistant", "content": assistant_text}
+                    messages.append(assistant_message)
+                    raw_messages.append(assistant_message)
+                    continue
+
+            force_anythingllm_files = should_force_list_anythingllm_files(effective_user_text)
+            force_workspace_files = should_force_list_workspace_files(effective_user_text)
+            force_skills = should_force_skills_check(effective_user_text)
+
+            if force_skills:
+                from aiagent.tools.clock import get_system_datetime as _dt
+                _now = _dt()
+                effective_user_text += (
+                    f"\n\n【当前系统时间】\n"
+                    f"日期：{_now['date']}（{_now['weekday']}）\n"
+                    f"时间：{_now['time']}"
+                )
+
+            if not should_route_for_tools(effective_user_text):
+                continue
+
+            chained_user_request = build_chained_user_request(
+                user_text=effective_user_text,
+                project_root=config.project_root,
+                force_search=force_search,
+                force_workspace_files=force_workspace_files,
+                force_anythingllm_files=force_anythingllm_files,
+                force_skills=force_skills,
+            )
+            print("助手: ", end="", flush=True)
+            streamed_chunks: list[str] = []
+
+            def on_token(token: str) -> None:
+                print(token, end="", flush=True)
+                streamed_chunks.append(token)
+
+            assistant_text = executechainedtoolcall(
+                userrequest=chained_user_request,
+                systemprompt=system_prompt,
+                tools=tools,
+                base_url=config.base_url,
+                api_key=config.api_key,
+                model=config.model,
+                max_tokens=config.max_tokens,
+                anythingllm_key=config.anythingllm_key,
+                anythingllm_url=config.anythingllm_url,
+                maxiterations=config.max_tool_iterations,
+                tool_schema_map=tool_schema_map,
+                project_root=config.project_root,
+                restrict_filesystem_to_workspace=config.restrict_filesystem_to_workspace,
+                tool_call_log_path=tool_call_log_path,
+                on_token=on_token,
+            )
+            print()
+            if assistant_text == "已达到最大迭代次数，但任务尚未完成。":
+                from aiagent.llm_client import call_llm as _clm
+                _fallback_payload = {
+                    "model": config.model,
+                    "messages": [{"role": "user", "content": effective_user_text}],
+                    "stream": False,
+                    "max_tokens": config.max_tokens,
                 }
-                route_response = call_llm(base_url, api_key, route_payload)
-                route_message = route_response.get("choices", [{}])[0].get("message", {})
-                tool_calls = extract_tool_calls(route_message)
-                if tool_calls:
-                    messages.append(route_message)
+                _resp = _clm(config.base_url, config.api_key, _fallback_payload)
+                _fb_choice = _resp.get("choices", [{}])[0]
+                _fb_msg = _fb_choice.get("message", _fb_choice)
+                assistant_text = _fb_msg.get("content") or _fb_msg.get("reasoning_content") or ""
+                print("助手: " + assistant_text)
 
-            if tool_calls:
-                for call in tool_calls:
-                    tool_name, tool_result = run_tool_call(
-                        call,
-                        base_url,
-                        api_key,
-                        model,
-                        anythingllm_key,
-                        anythingllm_url,
-                    )
-                    if tool_name == "search_history":
-                        print("检索结果:")
-                        print(tool_result)
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": call.get("id", ""),
-                            "name": tool_name,
-                            "content": tool_result,
-                        }
-                    )
-
-                payload = build_payload(model, messages)
-                print("助手: ", end="", flush=True)
-                assistant_text = stream_chat(base_url, api_key, payload)
-            else:
-                payload = build_payload(model, messages)
-                print("助手: ", end="", flush=True)
-                assistant_text = stream_chat(base_url, api_key, payload)
+            assistant_text = enforce_notice_skill_defaults(user_text, assistant_text)
 
             if assistant_text:
                 assistant_message = {"role": "assistant", "content": assistant_text}
@@ -410,4 +183,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

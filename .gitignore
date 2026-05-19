@@ -13,6 +13,9 @@ ENV/
 # Environment files
 .env
 
+# Claude local settings
+CLAUDE.local.md
+
 # IDE
 .idea/
 .vscode/
@@ -20,4 +23,7 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime output
+runtime/
 

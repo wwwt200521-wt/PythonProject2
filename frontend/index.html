@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent — 提示工程实验室</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11/styles/atom-one-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11/lib/highlight.min.js"></script>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="bar">
+  <span class="logo"><span class="dot"></span>AI Agent · 提示工程实验室</span>
+  <span class="info" id="stat"></span>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT -->
+  <div id="left">
+    <div class="panel-hd">🧩 Skills</div>
+    <div class="panel-bd" id="skillsBox"><span style="color:var(--text3);font-size:11px;">加载中...</span></div>
+    <div class="panel-hd">💬 Conversations</div>
+    <div class="panel-bd" id="convBox"></div>
+    <div class="panel-hd">🖥 System</div>
+    <div class="panel-bd" id="sysBox"><span style="color:var(--text3);font-size:11px;">加载中...</span></div>
+  </div>
+
+  <!-- MID -->
+  <div id="mid">
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 16px;background:var(--surf);border-bottom:1px solid var(--line);flex-shrink:0;">
+      <span style="flex:1;"></span>
+      <select id="convSel" onchange="switchConv(this.value)"><option value="">新对话</option></select>
+      <button class="btn" onclick="newConv()">+ 新建</button>
+      <button class="btn ro" onclick="clearCur()">清空</button>
+      <button class="btn" onclick="showConfig()">⚙ 配置</button>
+    </div>
+    <div id="msgs"><div class="mt"><span class="mticon">◇</span>输入消息开始对话</div></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 16px;background:var(--surf);border-bottom:1px solid var(--line);flex-shrink:0;">
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap;">🤖 智能体:</span>
+      <select id="agentSel" onchange="selectAgent(this.value)"><option value="">默认助手</option></select>
+    </div>
+    <div id="input-bar">
+      <textarea id="inp" rows="1" placeholder="输入消息... Enter 发送" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+      <button id="sendBtn" onclick="send()">发送</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div id="right">
+    <div class="panel-hd">⭐ Star · 智能体</div>
+    <div class="panel-bd" style="max-height:200px;overflow-y:auto;" id="agentBox"><span style="color:var(--text3);font-size:11px;">加载中...</span></div>
+    <div class="ag-form" id="agForm">
+      <input id="agName" placeholder="智能体名称">
+      <textarea id="agPrompt" placeholder="System Prompt"></textarea>
+      <div style="display:flex;gap:6px;justify-content:flex-end;">
+        <button class="btn" onclick="hideAgForm()">取消</button>
+        <button class="btn cy" onclick="createAgent()">创建</button>
+      </div>
+    </div>
+    <div style="padding:0 10px 8px;"><button class="btn" style="width:100%;text-align:center;" onclick="showAgForm()">+ 新建智能体</button></div>
+    <div class="panel-hd">🐣 小助手</div>
+    <div class="panel-bd" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:8px;">
+      <div class="mascot-wrap" id="mascotWrap">
+        <div class="mascot-bubble" id="mascotBubble"></div>
+        <div class="mascot idle" id="mascot">
+          <div class="mascot-ear l"></div>
+          <div class="mascot-ear r"></div>
+          <div class="mascot-head">
+            <div class="mascot-eyes">
+              <div class="mascot-eye"></div>
+              <div class="mascot-eye"></div>
+            </div>
+            <div class="mascot-blush l"></div>
+            <div class="mascot-blush r"></div>
+            <div class="mascot-mouth"></div>
+          </div>
+          <span class="mascot-sparkle s1">✦</span>
+          <span class="mascot-sparkle s2">✧</span>
+          <span class="mascot-sparkle s3">·</span>
+        </div>
+        <div class="mascot-status" id="mascotStatus">有什么我可以帮忙的？</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CONFIG OVERLAY -->
+<div class="overlay" id="cfgOverlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="box">
+    <button class="close" onclick="document.getElementById('cfgOverlay').classList.remove('show')">✕</button>
+    <h2>⚙ 系统配置</h2>
+    <table id="cfgTable"></table>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

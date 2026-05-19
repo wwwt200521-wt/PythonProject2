@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import json
-from datetime import date
+import datetime
+from typing import Any
 from urllib import error, parse, request
+
+from aiagent.retry import retry_on_failure
 
 
 def _normalize_date(raw: str) -> str:
@@ -8,12 +13,12 @@ def _normalize_date(raw: str) -> str:
     if not raw:
         raise ValueError("Date is required")
     if len(raw) == 5 and raw[2] == "-":
-        year = date.today().year
+        year = datetime.date.today().year
         return f"{year}-{raw}"
     return raw
 
 
-def _pick_hourly(hourly: list[dict]) -> dict:
+def _pick_hourly(hourly: list[dict[str, Any]]) -> dict[str, Any]:
     if not hourly:
         return {}
     for entry in hourly:
@@ -22,7 +27,7 @@ def _pick_hourly(hourly: list[dict]) -> dict:
     return hourly[0]
 
 
-def _extract_forecast(payload: dict, target_date: str, lang: str = "zh") -> dict:
+def _extract_forecast(payload: dict[str, Any], target_date: str, lang: str = "zh") -> dict[str, Any]:
     """Extract a forecast for target_date from wttr.in JSON payload."""
     lang_key = f"lang_{lang}"
     for day in payload.get("weather", []):
@@ -57,7 +62,8 @@ def _extract_forecast(payload: dict, target_date: str, lang: str = "zh") -> dict
     return {"date": target_date, "error": "Date not found in forecast"}
 
 
-def fetch_weather(city: str, fmt: str = "3", lang: str = "zh") -> dict:
+@retry_on_failure(max_attempts=3, initial_delay=1.0, backoff_factor=2.0)
+def fetch_weather(city: str, fmt: str = "3", lang: str = "zh") -> dict[str, Any]:
     if not city.strip():
         raise ValueError("City is required")
 
@@ -74,7 +80,8 @@ def fetch_weather(city: str, fmt: str = "3", lang: str = "zh") -> dict:
         raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
 
 
-def fetch_weather_by_date(city: str, target_date: str, lang: str = "zh", raw_json: bool = False) -> dict:
+@retry_on_failure(max_attempts=3, initial_delay=1.0, backoff_factor=2.0)
+def fetch_weather_by_date(city: str, target_date: str, lang: str = "zh", raw_json: bool = False) -> dict[str, Any]:
     if not city.strip():
         raise ValueError("City is required")
 
@@ -87,7 +94,7 @@ def fetch_weather_by_date(city: str, target_date: str, lang: str = "zh", raw_jso
         with request.urlopen(url, timeout=30) as resp:
             payload = json.loads(resp.read().decode("utf-8", errors="ignore"))
             forecast = _extract_forecast(payload, normalized, lang)
-            result = {"city": city, "url": url, "forecast": forecast}
+            result: dict[str, Any] = {"city": city, "url": url, "forecast": forecast}
             if raw_json:
                 result["raw"] = payload
             return result
@@ -96,7 +103,7 @@ def fetch_weather_by_date(city: str, target_date: str, lang: str = "zh", raw_jso
         raise RuntimeError(f"HTTP {exc.code}: {detail}") from exc
 
 
-def tool_specs() -> list[dict]:
+def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -119,7 +126,7 @@ def tool_specs() -> list[dict]:
     ]
 
 
-def tool_dispatch() -> dict:
+def tool_dispatch() -> dict[str, Any]:
     return {"get_weather": get_weather}
 
 
@@ -129,12 +136,12 @@ def get_weather(
     date: str | None = None,
     lang: str = "zh",
     raw_json: bool = False,
-) -> dict:
-    if date:
-        return fetch_weather_by_date(city, date, lang=lang, raw_json=raw_json)
-    return fetch_weather(city, fmt=fmt, lang=lang)
+) -> dict[str, Any]:
+    if not date:
+        date = datetime.date.today().strftime("%Y-%m-%d")
+    return fetch_weather_by_date(city, date, lang=lang, raw_json=raw_json)
 
 
-def format_tool_result(result: dict) -> str:
+def format_tool_result(result: dict[str, Any]) -> str:
     return json.dumps(result, ensure_ascii=False)
 

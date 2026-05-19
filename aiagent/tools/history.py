@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
+from typing import Any
 
 
 def get_log_path() -> Path:
     project_root = Path(__file__).resolve().parents[2]
-    return project_root / "Log" / "log.txt"
+    return project_root / "runtime" / "log.txt"
 
 
 def ensure_log_file(log_path: Path | None = None) -> Path:
@@ -18,7 +19,7 @@ def ensure_log_file(log_path: Path | None = None) -> Path:
     return path
 
 
-def append_log_entries(entries: Iterable[dict], log_path: Path | None = None) -> dict:
+def append_log_entries(entries: Iterable[dict[str, Any]], log_path: Path | None = None) -> dict[str, Any]:
     path = ensure_log_file(log_path)
     lines = []
     for entry in entries:
@@ -37,7 +38,7 @@ def read_log_text(log_path: Path | None = None) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def tool_specs() -> list[dict]:
+def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -59,6 +60,6 @@ def tool_specs() -> list[dict]:
     ]
 
 
-def format_tool_result(result: dict) -> str:
+def format_tool_result(result: dict[str, Any]) -> str:
     return json.dumps(result, ensure_ascii=False)
 

@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
+from typing import Any
 
 
 def _resolve_in_dir(dir_path: str, name: str) -> Path:
@@ -13,7 +16,7 @@ def _resolve_in_dir(dir_path: str, name: str) -> Path:
     return target
 
 
-def list_dir(dir_path: str) -> dict:
+def list_dir(dir_path: str) -> dict[str, Any]:
     base = Path(dir_path).expanduser().resolve()
     if not base.exists() or not base.is_dir():
         raise ValueError("Directory does not exist")
@@ -33,7 +36,7 @@ def list_dir(dir_path: str) -> dict:
     return {"directory": str(base), "items": items}
 
 
-def rename_file(dir_path: str, old_name: str, new_name: str) -> dict:
+def rename_file(dir_path: str, old_name: str, new_name: str) -> dict[str, Any]:
     src = _resolve_in_dir(dir_path, old_name)
     dst = _resolve_in_dir(dir_path, new_name)
     if not src.exists():
@@ -46,7 +49,7 @@ def rename_file(dir_path: str, old_name: str, new_name: str) -> dict:
     return {"from": str(src), "to": str(dst)}
 
 
-def delete_file(dir_path: str, filename: str) -> dict:
+def delete_file(dir_path: str, filename: str) -> dict[str, Any]:
     target = _resolve_in_dir(dir_path, filename)
     if not target.exists():
         raise ValueError("File does not exist")
@@ -56,7 +59,7 @@ def delete_file(dir_path: str, filename: str) -> dict:
     return {"deleted": str(target)}
 
 
-def write_file(dir_path: str, filename: str, content: str, append: bool = False) -> dict:
+def write_file(dir_path: str, filename: str, content: str, append: bool = False) -> dict[str, Any]:
     target = _resolve_in_dir(dir_path, filename)
     target.parent.mkdir(parents=True, exist_ok=True)
     mode = "a" if append else "w"
@@ -69,7 +72,7 @@ def write_file(dir_path: str, filename: str, content: str, append: bool = False)
     }
 
 
-def read_file(dir_path: str, filename: str) -> dict:
+def read_file(dir_path: str, filename: str) -> dict[str, Any]:
     target = _resolve_in_dir(dir_path, filename)
     if not target.exists():
         raise ValueError("File does not exist")
@@ -79,13 +82,13 @@ def read_file(dir_path: str, filename: str) -> dict:
     return {"path": str(target), "content": content}
 
 
-def create_dir(dir_path: str, name: str) -> dict:
+def create_dir(dir_path: str, name: str) -> dict[str, Any]:
     target = _resolve_in_dir(dir_path, name)
     target.mkdir(parents=True, exist_ok=True)
     return {"path": str(target)}
 
 
-def tool_specs() -> list[dict]:
+def tool_specs() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
@@ -185,7 +188,7 @@ def tool_specs() -> list[dict]:
     ]
 
 
-def tool_dispatch() -> dict[str, Callable[..., dict]]:
+def tool_dispatch() -> dict[str, Callable[..., dict[str, Any]]]:
     return {
         "list_dir": list_dir,
         "rename_file": rename_file,
@@ -196,6 +199,6 @@ def tool_dispatch() -> dict[str, Callable[..., dict]]:
     }
 
 
-def format_tool_result(result: dict) -> str:
+def format_tool_result(result: dict[str, Any]) -> str:
     return json.dumps(result, ensure_ascii=False)
 
